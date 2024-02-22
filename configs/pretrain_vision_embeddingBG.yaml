@@ -13,10 +13,7 @@ dataset:
     batch_size: 200
   }
   test: {
-    roots: ['data/training/scene/scene_val/',
-            'data/evaluation/SVT',
-            'data/evaluation/SVTP',
-            'data/evaluation/CUTE80'],
+    roots: ['data/training/scene/scene_val/'],
     batch_size: 200
   }
   charset_path: data/new_benchmark.txt

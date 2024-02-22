@@ -8,21 +8,21 @@ global:
 dataset:
   train: {
     roots: ['data/training/scene/scene_train/',
-            'data/training/scene/scene_test/'
+            'data/training/scene/scene_test/',
+            'data/training/web/web_train/',
+            'data/training/web/web_test/'
             ],
     batch_size: 200
   }
   test: {
     roots: ['data/training/scene/scene_val/',
-            'data/evaluation/SVT',
-            'data/evaluation/SVTP',
-            'data/evaluation/CUTE80'],
+            'data/training/web/web_val/'],
     batch_size: 200
   }
   charset_path: data/new_benchmark.txt
   data_aug: True
   multiscales: False
-  num_workers: 9
+  num_workers: 20
 
 training:
   epochs: 8
@@ -50,7 +50,7 @@ model:
   checkpoint: ~
   vision: {
     loss_weight: 1.,
-    embedding_loss_weight: 2.,
+    embedding_loss_weight: 0.5,
     attention: 'position',
     backbone: 'transformer',
     backbone_ln: 3,
