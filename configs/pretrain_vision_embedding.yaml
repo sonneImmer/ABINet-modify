@@ -1,5 +1,5 @@
 global:
-  name: benchmark
+  name: pretrain_vision_embedding
   phase: train
   stage: pretrain-vision
   workdir: workdir

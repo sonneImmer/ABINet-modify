@@ -15,7 +15,7 @@ class BaseVision(Model):
         self.out_channels = ifnone(config.model_vision_d_model, 512)
 
         if config.model_vision_backbone == 'transformer':
-            self.backbone = ResTranformer(config)
+            self.backbone = ResTransformer(config)
         else: self.backbone = resnet45()
         
         if config.model_vision_attention == 'position':

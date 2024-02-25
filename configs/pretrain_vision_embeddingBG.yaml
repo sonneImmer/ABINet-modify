@@ -1,5 +1,5 @@
 global:
-  name: benchmarkBG
+  name: pretrain_vision_embeddingBG
   phase: train
   stage: pretrain-vision
   workdir: workdir
@@ -8,12 +8,15 @@ global:
 dataset:
   train: {
     roots: ['data/training/scene/scene_train/',
-            'data/training/scene/scene_test/'
+            'data/training/scene/scene_test/',
+            'data/training/web/web_train/',
+            'data/training/web/web_test/'
             ],
     batch_size: 200
   }
   test: {
-    roots: ['data/training/scene/scene_val/'],
+    roots: ['data/training/scene/scene_val/',
+            'data/training/web/web_val/'],
     batch_size: 200
   }
   charset_path: data/new_benchmark.txt

@@ -209,6 +209,7 @@ class ImageDatasetWithEmbedding(Dataset):
         self.case_sensitive, self.is_training = case_sensitive, is_training
         self.data_aug, self.multiscales = data_aug, multiscales
         self.charset = CharsetMapper(charset_path, max_length=max_length + 1)
+        self.character = self.charset.label_to_char.values()
         self.c = self.charset.num_classes
 
         self.env = lmdb.open(str(path), readonly=True, lock=False, readahead=False, meminit=False)
@@ -274,8 +275,10 @@ class ImageDatasetWithEmbedding(Dataset):
         with self.env.begin(write=False) as txn:
             image_key, label_key, embed_key = f'image-{idx + 1:09d}', f'label-{idx + 1:09d}', f'embed-{idx + 1:09d}'
             try:
-                label = str(txn.get(label_key.encode()), 'utf-8')  # label
-                label = re.sub('[^0-9a-zA-Z]+', '', label)
+                label = str(txn.get(label_key.encode()), 'utf-8').strip()  # label
+                if not set(label).issubset(self.character):
+                    return self._next_image(idx)
+                # label = re.sub('[^0-9a-zA-Z]+', '', label)
                 if self.check_length and self.max_length > 0:
                     if len(label) > self.max_length or len(label) <= 0:
                         # logging.info(f'Long or short text image is found: {self.name}, {idx}, {label}, {len(label)}')
