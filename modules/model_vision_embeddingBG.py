@@ -8,7 +8,8 @@ from modules.backbone import ResTransformer
 from modules.embedding_head import Embedding
 from modules.model import Model
 from modules.resnet import resnet45
-
+from utils import Token2Embedding
+from transformers import BertTokenizer, BertModel
 
 class BaseVision(Model):
     def __init__(self, config):
@@ -16,6 +17,11 @@ class BaseVision(Model):
         self.loss_weight = ifnone(config.model_vision_loss_weight, 1.0)
         self.embedding_loss_weight = ifnone(config.model_vision_embedding_loss_weight, 1.0)
         self.out_channels = ifnone(config.model_vision_d_model, 512)
+        self.tokenizer = BertTokenizer.from_pretrained('bert-base-chinese') # 加载base模型的对应的切词器
+        self.model = BertModel.from_pretrained('bert-base-chinese')
+        self.model = self.model.to('cuda')
+
+        self.language_model = Token2Embedding()
 
         if config.model_vision_backbone == 'transformer':
             self.backbone = ResTransformer(config)
@@ -26,7 +32,7 @@ class BaseVision(Model):
 
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
-            self.attention = PositionAttentionBA(
+            self.attention = PositionAttentionBG(
                 max_length=config.dataset_max_length + 1,  # additional stop token
                 mode=mode,
                 init_with_embedding=True  # should be set to False before v1.1
@@ -54,6 +60,21 @@ class BaseVision(Model):
         attn_vecs, attn_scores = self.attention(features, embedding_vector)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         logits = self.cls(attn_vecs)  # (N, T, C)  # [n, 26, 37]
         pt_lengths = self._get_length(logits)
+
+        tokens = torch.softmax(logits, dim=-1)
+
+        # word_embedding = self.language_model(tokens)
+
+        indexes = self.tokenizer.convert_tokens_to_ids(tokens) # convert tokens to index
+        # add cls and sep
+        indexes.insert(0, 101)
+        indexes.append(102)
+        indexes = torch.tensor(indexes).unsqueeze(0)
+        indexes = indexes.to('cuda')
+        outputs = self.model(torch.tensor(indexes).unsqueeze(0))
+
+        
+
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
                 'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision',

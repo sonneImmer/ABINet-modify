@@ -106,7 +106,7 @@ class PositionAttention(nn.Module):
 
         return attn_vecs, attn_scores.view(N, -1, H, W)
     
-class PositionAttentionBA(nn.Module):
+class PositionAttentionBG(nn.Module):
     def __init__(self, max_length, in_channels=512, num_channels=64, 
                  h=8, w=32, mode='nearest', init_with_embedding=False, **kwargs):
         super().__init__()
