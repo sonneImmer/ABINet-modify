@@ -63,5 +63,5 @@ class BCNLanguage(Model):
         pt_lengths = self._get_length(logits)
 
         res =  {'feature': output, 'logits': logits, 'pt_lengths': pt_lengths,
-                'loss_weight':self.loss_weight, 'name': 'language'}
+                'loss_weight':self.loss_weight, 'embed': embed, 'name': 'language'}
         return res

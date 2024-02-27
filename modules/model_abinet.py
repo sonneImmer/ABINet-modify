@@ -20,12 +20,12 @@ class ABINetModel(nn.Module):
         v_lengths = v_res['pt_lengths'].clamp_(2, self.max_length)  # TODO:move to langauge model
 
         l_res = self.language(v_tokens, v_lengths)
-        # if not self.use_alignment:
-        #     return l_res, v_res
-        # l_feature, v_feature = l_res['feature'], v_res['feature']
+        if not self.use_alignment:
+            return l_res, v_res
+        l_feature, v_feature = l_res['feature'], v_res['feature']
         
-        # a_res = self.alignment(l_feature, v_feature)
+        a_res = self.alignment(l_feature, v_feature)
         
         
         
-        return l_res, v_res
+        return a_res, l_res, v_res

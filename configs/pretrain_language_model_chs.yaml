@@ -1,0 +1,50 @@
+global:
+  name: pretrain-language-model-chs
+  phase: train
+  stage: pretrain-language
+  workdir: workdir
+  seed: ~
+ 
+dataset:
+  train: {
+    roots: ['data/train.csv'],
+    batch_size: 1024
+  }
+  test: {
+    roots: ['data/test.csv'],
+    batch_size: 1024
+  }
+  charset_path: data/GBK_charset.txt
+  data_aug: True
+  multiscales: False
+  num_workers: 20
+
+
+training:
+  epochs: 80
+  show_iters: 50
+  eval_iters: 6000
+  save_iters: 3000
+
+optimizer:
+  type: Adam
+  true_wd: False
+  wd: 0.0
+  bn_wd: False
+  clip_grad: 20
+  lr: 0.0001
+  args: {
+    betas: !!python/tuple [0.9, 0.999], # for default Adam 
+  }
+  scheduler: {
+    periods: [70, 10],
+    gamma: 0.1,
+  }
+
+model:
+  name: 'modules.model_language.BCNLanguage'
+  language: {
+    num_layers: 4,
+    loss_weight: 1.,
+    use_self_attn: False
+  }

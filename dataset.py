@@ -351,7 +351,7 @@ class TextDataset(Dataset):
                  path: PathOrStr,
                  delimiter: str = '\t',
                  max_length: int = 25,
-                 charset_path: str = 'data/charset_vn.txt',
+                 charset_path: str = 'data/new_benchmark.txt',
                  case_sensitive=False,
                  one_hot_x=True,
                  one_hot_y=True,
