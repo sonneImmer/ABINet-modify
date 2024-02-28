@@ -22,7 +22,7 @@ dataset:
   charset_path: data/new_benchmark.txt
   data_aug: True
   multiscales: False
-  num_workers: 9
+  # num_workers: 9
 
 training:
   epochs: 8

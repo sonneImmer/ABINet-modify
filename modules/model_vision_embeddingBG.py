@@ -8,28 +8,29 @@ from modules.backbone import ResTransformer
 from modules.embedding_head import Embedding
 from modules.model import Model
 from modules.resnet import resnet45
-from utils import Token2Embedding
-from transformers import BertTokenizer, BertModel
+from .model_vision import BaseVision
+from pytorch_pretrained_bert import BertTokenizer, BertModel
+from utils import MyDataParallel
 
-class BaseVision(Model):
+class AlignModel(Model):
     def __init__(self, config):
         super().__init__(config)
         self.loss_weight = ifnone(config.model_vision_loss_weight, 1.0)
-        self.embedding_loss_weight = ifnone(config.model_vision_embedding_loss_weight, 1.0)
         self.out_channels = ifnone(config.model_vision_d_model, 512)
-        self.tokenizer = BertTokenizer.from_pretrained('bert-base-chinese') # 加载base模型的对应的切词器
-        self.model = BertModel.from_pretrained('bert-base-chinese')
-        self.model = self.model.to('cuda')
+        self.vision = BaseVision(config)
+        self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
+        self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
 
-        self.language_model = Token2Embedding()
+        # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
+
+        # self.bert = MyDataParallel(self.bert)
+        # self.bert = self.bert.to('cuda')
 
         if config.model_vision_backbone == 'transformer':
             self.backbone = ResTransformer(config)
         else:
             self.backbone = resnet45()
-        
-        self.embedding = Embedding(8*32, 512)
-
+    
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
             self.attention = PositionAttentionBG(
@@ -46,36 +47,50 @@ class BaseVision(Model):
             raise Exception(f'{config.model_vision_attention} is not valid.')
         self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
-        if config.model_vision_checkpoint is not None:
-            logging.info(f'Read vision model from {config.model_vision_checkpoint}.')
-            self.load(config.model_vision_checkpoint)
-
     def forward(self, images, *args):
-        features = self.backbone(images)  # (N, E, H, W)  # [n, 512, 8, 32]
-        #v_res = self.vision(images)
+        features = self.backbone(images) # feature (N, E, H, W) [67, 512, 8, 32]
+        v_res = self.vision(images)  # image [67, 3, 32, 128]
 
-        embedding_vector = self.embedding(features)  # [450, 300]
-        # embedding_vector = np.zeros((features.shape[0], 300))  # for debug
-
-        attn_vecs, attn_scores = self.attention(features, embedding_vector)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
-        logits = self.cls(attn_vecs)  # (N, T, C)  # [n, 26, 37]
+        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
-
-        tokens = torch.softmax(logits, dim=-1)
-
-        # word_embedding = self.language_model(tokens)
-
-        indexes = self.tokenizer.convert_tokens_to_ids(tokens) # convert tokens to index
-        # add cls and sep
-        indexes.insert(0, 101)
-        indexes.append(102)
-        indexes = torch.tensor(indexes).unsqueeze(0)
-        indexes = indexes.to('cuda')
-        outputs = self.model(torch.tensor(indexes).unsqueeze(0))
-
+        
+        pt_text, pt_scores, pt_lengths_ = self.decode(logits)
         
 
+        text_embeddings = []
+        for text in pt_text:
+            text = self.tokenizer.tokenize(text)
+            text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
+            text_id = torch.tensor(text_id,dtype = torch.long)
+            text_id = text_id.unsqueeze(dim=0)
+            text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
+            text_embedding = text_embedding.detach()   # 切断反向传播
+            text_embeddings.append(text_embedding)
+        # print(text_embedding.shape)                # torch.Size([1, 8, 768])
+        
+        text_embeddings = torch.stack(text_embeddings, dim=0)
+        
+
+        attn_vecs, attn_scores = self.attention(features, text_embeddings)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
+        # text_embedding [1, 5, 768]
+
+        logits = self.cls(attn_vecs)
+        pt_lengths = self._get_length(logits)
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
-                'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision',
-                'embedding_vector': embedding_vector, 'embedding_loss_weight': self.embedding_loss_weight}
+                'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
+    
+    def decode(self, logit):
+        """ Greed decode """
+        # TODO: test running time and decode on GPU
+        out = F.softmax(logit, dim=2)
+        pt_text, pt_scores, pt_lengths = [], [], []
+        for o in out:
+            text = self.charset.get_text(o.argmax(dim=1), padding=False, trim=False)
+            text = text.split(self.charset.null_char)[0]  # end at end-token
+            pt_text.append(text)
+            pt_scores.append(o.max(dim=1)[0])
+            pt_lengths.append(min(len(text) + 1, self.max_length))  # one for end-token
+        pt_scores = torch.stack(pt_scores)
+        pt_lengths = pt_scores.new_tensor(pt_lengths, dtype=torch.long)
+        return pt_text, pt_scores, pt_lengths

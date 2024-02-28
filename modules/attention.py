@@ -72,7 +72,7 @@ class PositionAttention(nn.Module):
             self.embedding_func = nn.Linear(300, 512)
 
     def forward(self, x, embedding_vector=None):
-        N, E, H, W = x.size()
+        N, E, H, W = x.size() # [67, 512, 8, 32]
         k, v = x, x  # (N, E, H, W)
 
         # calculate key vector
@@ -83,7 +83,7 @@ class PositionAttention(nn.Module):
         for i in range(0, len(self.k_decoder) - 1):
             k = self.k_decoder[i](k)
             k = k + features[len(self.k_decoder) - 2 - i]
-        k = self.k_decoder[-1](k)
+        k = self.k_decoder[-1](k) # [67, 512, 8, 32]
 
         # calculate query vector
         # TODO q=f(q,k)
@@ -131,7 +131,7 @@ class PositionAttentionBG(nn.Module):
         # Fix: `embedding_func` works only when use embedding init_state in v1.x,
         # so when should limit `embedding_func` by the `init_with_embedding` signal.
         if self.init_with_embedding:
-            self.embedding_func = nn.Linear(300, 512)
+            self.embedding_func = nn.Linear(768, 512)
 
     def forward(self, x, embedding_vector=None):
         N, E, H, W = x.size()
@@ -150,8 +150,8 @@ class PositionAttentionBG(nn.Module):
         # calculate query vector
         # TODO q=f(q,k)
         if self.init_with_embedding:
-            init_state = self.embedding_func(embedding_vector)  # [450, 512]
-            init_state = init_state.repeat(self.max_length, 1, 1)  # [26, 450, 512]
+            init_state = self.embedding_func(embedding_vector)  # embedding_vectoe [66, 768] init_state [66, 512]
+            init_state = init_state.repeat(self.max_length, 1, 1)  # [26, 66, 512]
         else:
             init_state = x.new_zeros((self.max_length, N, E))  # (T, N, E)  # [26, 450, 512]
         q = self.pos_encoder(init_state)  # (T, N, E)

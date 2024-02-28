@@ -45,3 +45,11 @@ class BaseVision(Model):
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
                 'attn_scores': attn_scores, 'loss_weight':self.loss_weight, 'name': 'vision'}
+    
+    def feature_forward(self, features, *args):
+        attn_vecs, attn_scores = self.attention(features)  # (N, T, E), (N, T, H, W)
+        logits = self.cls(attn_vecs) # (N, T, C)
+        pt_lengths = self._get_length(logits)
+
+        return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
+                'attn_scores': attn_scores, 'loss_weight':self.loss_weight, 'name': 'vision'}
