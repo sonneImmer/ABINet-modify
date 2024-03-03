@@ -1,5 +1,5 @@
 global:
-  name: train-embedding-align
+  name: train-embedding-align-iter
   phase: train
   stage: pretrain-vision
   workdir: workdir
@@ -12,12 +12,12 @@ dataset:
             'data/training/web/web_train/',
             'data/training/web/web_test/'
             ],
-    batch_size: 200
+    batch_size: 180
   }
   test: {
     roots: ['data/training/scene/scene_val/',
             'data/training/web/web_val/'],
-    batch_size: 200
+    batch_size: 180
   }
   charset_path: data/new_benchmark.txt
   data_aug: True
@@ -46,7 +46,7 @@ optimizer:
   }
 
 model:
-  name: 'modules.model_align_embedding.AlignModel'
+  name: 'modules.model_align_embedding_iter.AlignModel'
   iter_size: 3
   ensemble: ''
   use_vision: False
