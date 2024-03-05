@@ -55,25 +55,41 @@ class AlignModel(Model):
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
         
-        pt_text, pt_scores, pt_lengths_ = self.decode(logits)
-        text_embeddings = []
-        for text in pt_text:
-            text = self.tokenizer.tokenize(text)
-            text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
-            text_id = torch.tensor(text_id,dtype = torch.long)
-            text_id = text_id.unsqueeze(dim=0)
-            temp = self.bert(text_id.cuda())
-            if len(temp[1]) == 0:
-                text_embedding = torch.rand(1, 8, 768)
-            else:
-                text_embedding = temp[1][0] # 取第1层，也可以取别的层。
-                text_embedding = text_embedding.detach()   # 切断反向传播
-            text_embeddings.append(text_embedding)
-        # print(text_embedding.shape)                # torch.Size([1, 8, 768])
-        text_embeddings = torch.stack(text_embeddings, dim=0)            
+        # pt_text, pt_scores, pt_lengths_ = self.decode(logits)   #iter with origin text
+        # text_embeddings = []
+        # for text in pt_text:
+        #     text = self.tokenizer.tokenize(text)
+        #     text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
+        #     text_id = torch.tensor(text_id,dtype = torch.long)
+        #     text_id = text_id.unsqueeze(dim=0)
+        #     temp = self.bert(text_id.cuda())
+        #     if len(temp[1]) == 0:
+        #         text_embedding = torch.rand(1, 8, 768)
+        #     else:
+        #         text_embedding = temp[1][0] # 取第1层，也可以取别的层。
+        #         text_embedding = text_embedding.detach()   # 切断反向传播
+        #     text_embeddings.append(text_embedding)
+        # # print(text_embedding.shape)                # torch.Size([1, 8, 768])
+        # text_embeddings = torch.stack(text_embeddings, dim=0)            
 
         for _ in range(self.iter_size):
             pt_text, pt_scores, pt_lengths_ = self.decode(logits)
+
+            text_embeddings = []
+            for text in pt_text:
+                text = self.tokenizer.tokenize(text)
+                text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
+                text_id.insert(0, 101) # add CLS
+                text_id.append(102) # add SEP
+                text_id = torch.tensor(text_id,dtype = torch.long)
+                text_id = text_id.unsqueeze(dim=0)
+                # text_id = torch.tensor(self.tokenizer.encode(text)).unsqueeze(0)
+                
+                text_embedding = self.bert(text_id.cuda())[1][0] # 取第1层，也可以取别的层。
+                text_embedding = text_embedding.detach()   # 切断反向传播
+                text_embeddings.append(text_embedding)
+            # print(text_embedding.shape)                # torch.Size([1, 8, 768])
+            text_embeddings = torch.stack(text_embeddings, dim=0)            
 
             attn_vecs, attn_scores = self.attention(features, text_embeddings)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
             # text_embedding [1, 5, 768]
