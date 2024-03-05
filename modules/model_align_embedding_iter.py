@@ -62,8 +62,12 @@ class AlignModel(Model):
             text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
             text_id = torch.tensor(text_id,dtype = torch.long)
             text_id = text_id.unsqueeze(dim=0)
-            text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
-            text_embedding = text_embedding.detach()   # 切断反向传播
+            temp = self.bert(text_id.cuda())
+            if len(temp[1]) == 0:
+                text_embedding = torch.rand(1, 8, 768)
+            else:
+                text_embedding = temp[1][0] # 取第1层，也可以取别的层。
+                text_embedding = text_embedding.detach()   # 切断反向传播
             text_embeddings.append(text_embedding)
         # print(text_embedding.shape)                # torch.Size([1, 8, 768])
         text_embeddings = torch.stack(text_embeddings, dim=0)            
