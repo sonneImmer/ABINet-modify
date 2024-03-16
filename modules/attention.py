@@ -131,7 +131,7 @@ class PositionAttentionBG(nn.Module):
         # Fix: `embedding_func` works only when use embedding init_state in v1.x,
         # so when should limit `embedding_func` by the `init_with_embedding` signal.
         if self.init_with_embedding:
-            self.embedding_func = nn.Linear(768, 512)
+            self.embedding_func = nn.Linear(768, 8*32)
 
     def forward(self, x, embedding_vector=None):
         N, E, H, W = x.size()
@@ -167,4 +167,24 @@ class PositionAttentionBG(nn.Module):
         v = v.permute(0, 2, 3, 1).view(N, -1, E)  # (N, (H*W), E)
         attn_vecs = torch.bmm(attn_scores, v)  # (N, T, E)
 
-        return attn_vecs, attn_scores.view(N, -1, H, W)
+        back_f = attn_vecs.view(N, E, H, W)
+
+        return attn_vecs, attn_scores.view(N, -1, H, W), back_f
+
+    def add(self, x, embedding_vector=None):
+        N, E, H, W = x.size()
+        k, v = x, x  # (N, E, H, W)
+
+        if self.init_with_embedding:
+            init_state = self.embedding_func(embedding_vector)  # embedding_vectoe [66, 768] init_state [66, 8*32]
+            init_state = init_state.repeat(E, 1, 1)  # [26, 66, 512]
+        else:
+            init_state = x.new_zeros((E, N, H*W))  # (T, N, E)  # [26, 450, 512]
+
+        
+        q = init_state.view(N, E, H, W)  # (N, T, E)
+
+        k = q + k
+
+        return k
+        

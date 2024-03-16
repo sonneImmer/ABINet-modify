@@ -1,5 +1,5 @@
 global:
-  name: train-embedding-align
+  name: train-embedding-align-3
   phase: train
   stage: pretrain-vision
   workdir: workdir

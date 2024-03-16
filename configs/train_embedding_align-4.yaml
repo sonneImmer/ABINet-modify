@@ -1,5 +1,5 @@
 global:
-  name: train-embedding-align
+  name: train-embedding-align-4
   phase: train
   stage: pretrain-vision
   workdir: workdir
@@ -46,7 +46,7 @@ optimizer:
   }
 
 model:
-  name: 'modules.model_align_embedding-3.AlignModel'
+  name: 'modules.model_align_embedding-4.AlignModel'
   iter_size: 3
   ensemble: ''
   use_vision: False

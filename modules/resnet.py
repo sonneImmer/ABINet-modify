@@ -99,6 +99,83 @@ class ResNet(nn.Module):
         x = self.layer5(x)
         return x
 
+    def con(self, x, layer_num=5):
+        if layer_num==3:
+            x = self.layer4(x)
+            x = self.layer5(x)
+        elif layer_num==4:
+            x = self.layer5(x)
+        return x
 
 def resnet45():
     return ResNet(BasicBlock, [3, 4, 6, 6, 3])
+
+class ResNet_num(nn.Module):
+
+    def __init__(self, block, layers):
+        self.inplanes = 32
+        super(ResNet_num, self).__init__()
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=1, padding=1,
+                               bias=False)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.relu = nn.ReLU(inplace=True)
+
+        self.layer1 = self._make_layer(block, 32, layers[0], stride=2)
+        self.layer2 = self._make_layer(block, 64, layers[1], stride=1)
+        self.layer3 = self._make_layer(block, 128, layers[2], stride=2)
+        self.layer4 = self._make_layer(block, 256, layers[3], stride=1)
+        self.layer5 = self._make_layer(block, 512, layers[4], stride=1)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+    def _make_layer(self, block, planes, blocks, stride=1):
+        downsample = None
+        if stride != 1 or self.inplanes != planes * block.expansion:
+            downsample = nn.Sequential(
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(planes * block.expansion),
+            )
+
+        layers = []
+        layers.append(block(self.inplanes, planes, stride, downsample))
+        self.inplanes = planes * block.expansion
+        for i in range(1, blocks):
+            layers.append(block(self.inplanes, planes))
+
+        return nn.Sequential(*layers)
+
+    def forward(self, x, layer_num=5):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.layer1(x)
+        x = self.layer2(x) # 66，64， 16， 64
+
+        if layer_num==3:
+            x = self.layer3(x) # 66, 128, 8, 32
+        elif layer_num==4:
+            x = self.layer3(x)
+            x = self.layer4(x)
+        elif layer_num==5:
+            x = self.layer3(x)
+            x = self.layer4(x)
+            x = self.layer5(x)
+        return x
+    
+    def con(self, x, layer_num=5):
+        if layer_num==3:
+            x = self.layer4(x)
+            x = self.layer5(x)
+        elif layer_num==4:
+            x = self.layer5(x)
+        return x
+
+def resnet45_num():
+    return ResNet_num(BasicBlock, [3, 4, 6, 6, 3])
