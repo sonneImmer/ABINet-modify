@@ -131,7 +131,7 @@ class PositionAttentionBG(nn.Module):
         # Fix: `embedding_func` works only when use embedding init_state in v1.x,
         # so when should limit `embedding_func` by the `init_with_embedding` signal.
         if self.init_with_embedding:
-            self.embedding_func = nn.Linear(768, 8*32)
+            self.embedding_func = nn.Linear(768, in_channels)
 
     def forward(self, x, embedding_vector=None):
         N, E, H, W = x.size()
@@ -158,7 +158,6 @@ class PositionAttentionBG(nn.Module):
         q = q.permute(1, 0, 2)  # (N, T, E)
         q = self.project(q)  # (N, T, E)
         
-        q = q + init_state.permute(1, 0, 2)
         # calculate attention
         attn_scores = torch.bmm(q, k.flatten(2, 3))  # (N, T, (H*W))
         attn_scores = attn_scores / (E ** 0.5)
@@ -167,13 +166,23 @@ class PositionAttentionBG(nn.Module):
         v = v.permute(0, 2, 3, 1).view(N, -1, E)  # (N, (H*W), E)
         attn_vecs = torch.bmm(attn_scores, v)  # (N, T, E)
 
-        back_f = attn_vecs.view(N, E, H, W)
+        # back_f = attn_vecs.view(N, E, H, W)
 
-        return attn_vecs, attn_scores.view(N, -1, H, W), back_f
+        return attn_vecs, attn_scores.view(N, -1, H, W)
 
     def add(self, x, embedding_vector=None):
         N, E, H, W = x.size()
         k, v = x, x  # (N, E, H, W)
+
+        # calculate key vector
+        features = []
+        for i in range(0, len(self.k_encoder)):
+            k = self.k_encoder[i](k)
+            features.append(k)
+        for i in range(0, len(self.k_decoder) - 1):
+            k = self.k_decoder[i](k)
+            k = k + features[len(self.k_decoder) - 2 - i]
+        k = self.k_decoder[-1](k)
 
         if self.init_with_embedding:
             init_state = self.embedding_func(embedding_vector)  # embedding_vectoe [66, 768] init_state [66, 8*32]
