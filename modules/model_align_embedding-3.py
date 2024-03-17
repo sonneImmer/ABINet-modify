@@ -90,17 +90,16 @@ class AlignModel(Model):
 
         # features, attn_scores, fixed_features = self.attention3(features, text_embeddings)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]
-        attn_vecs, attn_scores = self.attention3(features, text_embeddings)
+        features = self.attention3.add(features, text_embeddings)
 
-        # features = self.resnet.con(features, 3)
-        # v_res = self.vision.feature_forward(features)
-        # logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
+        features = self.resnet.con(features, 3)
 
-        logits = self.cls(attn_vecs)
+        v_res = self.vision.feature_forward(features)
+        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
 
-        return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
-                'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
+        return {'feature': v_res['feature'], 'logits': logits, 'pt_lengths': v_res['attn_scores'],
+                'attn_scores': v_res['attn_scores'], 'loss_weight': self.loss_weight, 'name': 'vision'}
     
     def decode(self, logit):
         """ Greed decode """
