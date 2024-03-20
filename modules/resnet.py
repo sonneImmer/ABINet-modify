@@ -176,6 +176,13 @@ class ResNet_num(nn.Module):
         elif layer_num==4:
             x = self.layer5(x)
         return x
+    
+    def con3(self, x, layer_num=3):
+        if layer_num==3:
+            x = self.layer4(x)
+        elif layer_num==4:
+            x = self.layer5(x)
+        return x
 
 def resnet45_num():
     return ResNet_num(BasicBlock, [3, 4, 6, 6, 3])

@@ -229,7 +229,8 @@ class PositionAttentionBG(nn.Module):
         v = v.permute(0, 2, 3, 1).view(N, -1, E)  # (N, (H*W), E)
         attn_vecs = torch.bmm(attn_scores, v)  # (N, T, E)
 
-        back_f = attn_vecs.view(N, E, H, W)
+        back_f = attn_vecs.permute(0, 2, 1).view(N, E, H, W)
+        back_f = back_f + x
 
-        return back_f
+        return back_f, attn_scores
         
