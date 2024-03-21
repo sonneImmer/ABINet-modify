@@ -100,7 +100,7 @@ class AlignModel(Model):
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
 
-        return {'feature': features, 'logits': logits, 'pt_lengths': pt_lengths,
+        return {'feature': attn_vec, 'logits': logits, 'pt_lengths': pt_lengths,
                 'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
     
     def decode(self, logit):
