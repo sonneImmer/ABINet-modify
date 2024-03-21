@@ -40,22 +40,22 @@ class AlignModel(Model):
                 init_with_embedding=True,  # should be set to False before v1.1
                 in_channels=128
             )
-        #     self.attention4 = PositionAttentionBG(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         mode=mode,
-        #         init_with_embedding=True,  # should be set to False before v1.1
-        #         in_channels=256
-        #     )
-        #     self.attention5 = PositionAttentionBG(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         mode=mode,
-        #         init_with_embedding=True  # should be set to False before v1.1
-        #     )
-        # elif config.model_vision_attention == 'attention':
-        #     self.attention = Attention(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         n_feature=8 * 32,
-        #     )
+            self.attention4 = PositionAttentionBG(
+                max_length=config.dataset_max_length + 1,  # additional stop token
+                mode=mode,
+                init_with_embedding=True,  # should be set to False before v1.1
+                in_channels=256
+            )
+            self.attention5 = PositionAttentionBG(
+                max_length=config.dataset_max_length + 1,  # additional stop token
+                mode=mode,
+                init_with_embedding=True  # should be set to False before v1.1
+            )
+        elif config.model_vision_attention == 'attention':
+            self.attention = Attention(
+                max_length=config.dataset_max_length + 1,  # additional stop token
+                n_feature=8 * 32,
+            )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
         # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
@@ -83,16 +83,18 @@ class AlignModel(Model):
         # print(text_embedding.shape)                # torch.Size([1, 8, 768])
         
         text_embeddings = torch.stack(text_embeddings, dim=0)
-        
+
         #fix visual feature
+        #3
         features = self.resnet(images, layer_num=3) # feature (N, C, H, W) [67, 512, 8, 32]
-        # n, c, h, w = features.shape
-
-        # features, attn_scores, fixed_features = self.attention3(features, text_embeddings)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
-        # text_embedding [1, 5, 768]
         attn_vec, attn_scores = self.attention3.add(features, text_embeddings)
-
-        features = self.resnet.con(attn_vec, 3)
+        features = self.resnet.con3(attn_vec, 3)
+        #4
+        features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
+        attn_vec, attn_scores = self.attention4.add(features, text_embeddings)
+        features = self.resnet.con(attn_vec, 4)
+        #5
+        features = self.attention5.add(features, text_embeddings)
 
         v_res = self.vision.feature_forward(features)
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]

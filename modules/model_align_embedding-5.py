@@ -34,28 +34,28 @@ class AlignModel(Model):
     
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
-            self.attention3 = PositionAttentionBG(
+            # self.attention3 = PositionAttentionBG(
+            #     max_length=config.dataset_max_length + 1,  # additional stop token
+            #     mode=mode,
+            #     init_with_embedding=True,  # should be set to False before v1.1
+            #     in_channels=128
+            # )
+            # self.attention4 = PositionAttentionBG(
+            #     max_length=config.dataset_max_length + 1,  # additional stop token
+            #     mode=mode,
+            #     init_with_embedding=True,  # should be set to False before v1.1
+            #     in_channels=256
+            # )
+            self.attention5 = PositionAttentionBG(
                 max_length=config.dataset_max_length + 1,  # additional stop token
                 mode=mode,
-                init_with_embedding=True,  # should be set to False before v1.1
-                in_channels=128
+                init_with_embedding=True  # should be set to False before v1.1
             )
-        #     self.attention4 = PositionAttentionBG(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         mode=mode,
-        #         init_with_embedding=True,  # should be set to False before v1.1
-        #         in_channels=256
-        #     )
-        #     self.attention5 = PositionAttentionBG(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         mode=mode,
-        #         init_with_embedding=True  # should be set to False before v1.1
-        #     )
-        # elif config.model_vision_attention == 'attention':
-        #     self.attention = Attention(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         n_feature=8 * 32,
-        #     )
+        elif config.model_vision_attention == 'attention':
+            self.attention = Attention(
+                max_length=config.dataset_max_length + 1,  # additional stop token
+                n_feature=8 * 32,
+            )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
         # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
@@ -85,21 +85,19 @@ class AlignModel(Model):
         text_embeddings = torch.stack(text_embeddings, dim=0)
         
         #fix visual feature
-        features = self.resnet(images, layer_num=3) # feature (N, C, H, W) [67, 512, 8, 32]
+        features = self.resnet(images, layer_num=5) # feature (N, C, H, W) [67, 512, 8, 32]
         # n, c, h, w = features.shape
 
         # features, attn_scores, fixed_features = self.attention3(features, text_embeddings)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]
-        attn_vec, attn_scores = self.attention3.add(features, text_embeddings)
+        attn_vec, attn_scores = self.attention5.add(features, text_embeddings)
 
-        features = self.resnet.con(attn_vec, 3)
-
-        v_res = self.vision.feature_forward(features)
+        v_res = self.vision.feature_forward(attn_vec)
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
 
-        return {'feature': features, 'logits': logits, 'pt_lengths': pt_lengths,
-                'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
+        return {'feature': attn_vec, 'logits': logits, 'pt_lengths': pt_lengths,
+            'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
     
     def decode(self, logit):
         """ Greed decode """
