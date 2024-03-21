@@ -94,7 +94,7 @@ class AlignModel(Model):
         attn_vec, attn_scores = self.attention4.add(features, text_embeddings)
         features = self.resnet.con(attn_vec, 4)
         #5
-        features = self.attention5.add(features, text_embeddings)
+        attn_vec, attn_scores = self.attention5.add(features, text_embeddings)
 
         v_res = self.vision.feature_forward(features)
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
