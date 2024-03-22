@@ -88,9 +88,9 @@ class AlignModel(Model):
         attn_vec, attn_scores = self.attention3.add(features, text_embeddings)
         features = self.resnet.con3(attn_vec, 3)
         #fix visual feature
-        features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
+        # features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
         attn_vec, attn_scores = self.attention4.add(features, text_embeddings)
-        features = self.resnet.con(attn_vec, 4)
+        features = self.resnet.con3(attn_vec, 4)
 
         v_res = self.vision.feature_forward(features)
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]

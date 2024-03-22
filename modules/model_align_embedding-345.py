@@ -90,9 +90,9 @@ class AlignModel(Model):
         attn_vec, attn_scores = self.attention3.add(features, text_embeddings)
         features = self.resnet.con3(attn_vec, 3)
         #4
-        features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
+        # features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
         attn_vec, attn_scores = self.attention4.add(features, text_embeddings)
-        features = self.resnet.con(attn_vec, 4)
+        features = self.resnet.con3(attn_vec, 4)
         #5
         attn_vec, attn_scores = self.attention5.add(features, text_embeddings)
 
