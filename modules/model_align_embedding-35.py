@@ -22,15 +22,6 @@ class AlignModel(Model):
         self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
         self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
 
-        # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
-
-        # self.bert = MyDataParallel(self.bert)
-        # self.bert = self.bert.to('cuda')
-
-        if config.model_vision_backbone == 'transformer':
-            self.backbone = ResTransformer_num(config)
-        else:
-            self.backbone = resnet45()
     
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
@@ -40,12 +31,6 @@ class AlignModel(Model):
                 init_with_embedding=True,  # should be set to False before v1.1
                 in_channels=128
             )
-            # self.attention4 = PositionAttentionBG(
-            #     max_length=config.dataset_max_length + 1,  # additional stop token
-            #     mode=mode,
-            #     init_with_embedding=True,  # should be set to False before v1.1
-            #     in_channels=256
-            # )
             self.attention5 = PositionAttentionBG(
                 max_length=config.dataset_max_length + 1,  # additional stop token
                 mode=mode,
@@ -58,11 +43,10 @@ class AlignModel(Model):
             )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
-        # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
+        self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
     def forward(self, images, y):
         
-        features = self.backbone(images) # feature (N, E, H, W) [67, 512, 8, 32]
         v_res = self.vision(images)  # image [67, 3, 32, 128]
 
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
@@ -86,7 +70,7 @@ class AlignModel(Model):
         
         features = self.resnet(images, layer_num=3) # feature (N, C, H, W) [67, 512, 8, 32]
         attn_vec, attn_scores = self.attention3.add(features, text_embed)
-        features = self.resnet.con3(attn_vec, 3)
+        features = self.resnet.con(attn_vec, 3)
 
         attn_vecs, attn_scores = self.attention5(features, text_embed)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]

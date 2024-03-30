@@ -22,11 +22,6 @@ class AlignModel(Model):
         self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
         self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
 
-        # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
-
-        # self.bert = MyDataParallel(self.bert)
-        # self.bert = self.bert.to('cuda')
-
         if config.model_vision_backbone == 'transformer':
             self.backbone = ResTransformer_num(config)
         else:
@@ -58,18 +53,16 @@ class AlignModel(Model):
             )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
-        # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
+        self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
     def forward(self, images, y):
-        
-        features = self.backbone(images) # feature (N, E, H, W) [67, 512, 8, 32]
+
         v_res = self.vision(images)  # image [67, 3, 32, 128]
 
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
         
         pt_text, pt_scores, pt_lengths_ = self.decode(logits)
-        
 
         text_embed = []
         for text in pt_text:
@@ -80,7 +73,6 @@ class AlignModel(Model):
             text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
             text_embedding = text_embedding.detach()   # 切断反向传播
             text_embed.append(text_embedding)
-        # print(text_embedding.shape)                # torch.Size([1, 8, 768])
         
         text_embed = torch.stack(text_embed, dim=0)
         
@@ -91,6 +83,7 @@ class AlignModel(Model):
         features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
         attn_vec, attn_scores = self.attention4.add(features, text_embed)
         features = self.resnet.con(attn_vec, 4)
+
 
         attn_vecs, attn_scores = self.attention5(features, text_embed)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]

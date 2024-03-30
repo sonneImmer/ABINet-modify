@@ -62,7 +62,6 @@ class AlignModel(Model):
 
     def forward(self, images, y):
         
-        features = self.backbone(images) # feature (N, E, H, W) [67, 512, 8, 32]
         v_res = self.vision(images)  # image [67, 3, 32, 128]
 
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]

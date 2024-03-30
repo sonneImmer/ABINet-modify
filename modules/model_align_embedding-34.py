@@ -51,11 +51,6 @@ class AlignModel(Model):
                 init_with_embedding=True,  # should be set to False before v1.1
                 in_channels=256
             )
-            # self.attention5 = PositionAttentionBG(
-            #     max_length=config.dataset_max_length + 1,  # additional stop token
-            #     mode=mode,
-            #     init_with_embedding=True  # should be set to False before v1.1
-            # )
         elif config.model_vision_attention == 'attention':
             self.attention = Attention(
                 max_length=config.dataset_max_length + 1,  # additional stop token
@@ -67,7 +62,6 @@ class AlignModel(Model):
 
     def forward(self, images, y):
         
-        features = self.backbone(images) # feature (N, E, H, W) [67, 512, 8, 32]
         v_res = self.vision(images)  # image [67, 3, 32, 128]
 
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
