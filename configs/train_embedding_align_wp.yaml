@@ -1,5 +1,5 @@
 global:
-  name: train-embedding-align-3
+  name: train-embedding-align-wp
   phase: train
   stage: pretrain-vision
   workdir: workdir
@@ -12,17 +12,17 @@ dataset:
             'data/training/web/web_train/',
             'data/training/web/web_test/'
             ],
-    batch_size: 400
+    batch_size: 200
   }
   test: {
     roots: ['data/training/scene/scene_val/',
             'data/training/web/web_val/'],
-    batch_size: 400
+    batch_size: 200
   }
   charset_path: data/new_benchmark.txt
   data_aug: True
   multiscales: False
-  num_workers: 9
+  num_workers: 6
 
 training:
   epochs: 8
@@ -46,7 +46,7 @@ optimizer:
   }
 
 model:
-  name: 'modules.model_align_embedding-3.AlignModel'
+  name: 'modules.model_align_embedding_wp.AlignModel'
   iter_size: 3
   ensemble: ''
   use_vision: False
@@ -57,4 +57,3 @@ model:
     backbone: 'transformer',
     backbone_ln: 3,
   }
-  strict: False

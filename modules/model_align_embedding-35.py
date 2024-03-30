@@ -60,8 +60,9 @@ class AlignModel(Model):
             raise Exception(f'{config.model_vision_attention} is not valid.')
         # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
-    def forward(self, images, *args):
+    def forward(self, images, y):
         
+        features = self.backbone(images) # feature (N, E, H, W) [67, 512, 8, 32]
         v_res = self.vision(images)  # image [67, 3, 32, 128]
 
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
@@ -69,32 +70,31 @@ class AlignModel(Model):
         
         pt_text, pt_scores, pt_lengths_ = self.decode(logits)
         
-        text_embeddings = []
+
+        text_embed = []
         for text in pt_text:
             text = self.tokenizer.tokenize(text)
             text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
-            text_id.insert(0, 101) # add CLS
-            text_id.append(102) # add SEP
             text_id = torch.tensor(text_id,dtype = torch.long)
             text_id = text_id.unsqueeze(dim=0)
             text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
             text_embedding = text_embedding.detach()   # 切断反向传播
-            text_embeddings.append(text_embedding)
+            text_embed.append(text_embedding)
         # print(text_embedding.shape)                # torch.Size([1, 8, 768])
         
-        text_embeddings = torch.stack(text_embeddings, dim=0)
+        text_embed = torch.stack(text_embed, dim=0)
         
         features = self.resnet(images, layer_num=3) # feature (N, C, H, W) [67, 512, 8, 32]
-        attn_vec, attn_scores = self.attention3.add(features, text_embeddings)
-        features = self.resnet.con(attn_vec, 3)
-        #fix visual feature
-        attn_vec, attn_scores = self.attention5.add(features, text_embeddings)
+        attn_vec, attn_scores = self.attention3.add(features, text_embed)
+        features = self.resnet.con3(attn_vec, 3)
 
-        v_res = self.vision.feature_forward(attn_vec)
-        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
+        attn_vecs, attn_scores = self.attention5(features, text_embed)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
+        # text_embedding [1, 5, 768]
+
+        logits = self.cls(attn_vecs)
         pt_lengths = self._get_length(logits)
 
-        return {'feature': attn_vec, 'logits': logits, 'pt_lengths': pt_lengths,
+        return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
                 'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
     
     def decode(self, logit):

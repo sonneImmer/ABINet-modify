@@ -157,7 +157,8 @@ class PositionAttentionBG(nn.Module):
         q = self.pos_encoder(init_state)  # (T, N, E)
         q = q.permute(1, 0, 2)  # (N, T, E)
         q = self.project(q)  # (N, T, E)
-        
+        q = q + init_state.permute(1, 0, 2)
+
         # calculate attention
         attn_scores = torch.bmm(q, k.flatten(2, 3))  # (N, T, (H*W))
         attn_scores = attn_scores / (E ** 0.5)
@@ -170,32 +171,7 @@ class PositionAttentionBG(nn.Module):
 
         return attn_vecs, attn_scores.view(N, -1, H, W)
 
-    # def add(self, x, embedding_vector=None):
-    #     N, E, H, W = x.size()
-    #     k, v = x, x  # (N, E, H, W)
 
-    #     # calculate key vector
-    #     features = []
-    #     for i in range(0, len(self.k_encoder)):
-    #         k = self.k_encoder[i](k)
-    #         features.append(k)
-    #     for i in range(0, len(self.k_decoder) - 1):
-    #         k = self.k_decoder[i](k)
-    #         k = k + features[len(self.k_decoder) - 2 - i]
-    #     k = self.k_decoder[-1](k)
-
-    #     if self.init_with_embedding:
-    #         init_state = self.embedding_func(embedding_vector)  # embedding_vectoe [66, 768] init_state [66, 8*32]
-    #         init_state = init_state.repeat(E, 1, 1)  # [26, 66, 512]
-    #     else:
-    #         init_state = x.new_zeros((E, N, H*W))  # (T, N, E)  # [26, 450, 512]
-
-        
-    #     q = init_state.view(N, E, H, W)  # (N, T, E)
-
-    #     k = q + k
-
-    #     return k
     def add(self, x, embedding_vector=None):
         N, E, H, W = x.size()
         k, v = x, x  # (N, E, H, W)
@@ -220,7 +196,8 @@ class PositionAttentionBG(nn.Module):
         q = self.pos_encoder(init_state)  # (T, N, E)
         q = q.permute(1, 0, 2)  # (N, T, E)
         q = self.project(q)  # (N, T, E)
-        
+        q = q + init_state.permute(1, 0, 2)
+
         # calculate attention
         attn_scores = torch.bmm(q, k.flatten(2, 3))  # (N, T, (H*W))
         attn_scores = attn_scores / (E ** 0.5)
@@ -233,4 +210,27 @@ class PositionAttentionBG(nn.Module):
         back_f = back_f + x
 
         return back_f, attn_scores
-        
+
+class BilinearSeqAttn(nn.Module):
+    def __init__(self,  **kwargs):
+        super().__init__()
+        self.cls = nn.Linear(768, 768)
+    
+    def bsa(self, x, embedding_vector=None):
+        L, E = x.size()
+        k, v = x, x
+
+        k = k.permute(1, 0)
+
+        init_state = embedding_vector.repeat(3, 1)
+        q = self.cls(init_state)
+        q = q + init_state
+
+        attn_scores = torch.matmul(q, k)
+        attn_scores = attn_scores / (E ** 0.5)
+        attn_scores = torch.softmax(attn_scores, dim=-1)
+
+        attn_vecs = torch.matmul(attn_scores, v).permute(1, 0)
+        attn_vecs = self.cls(attn_vecs).permute(1, 0)
+
+        return attn_vecs, attn_scores

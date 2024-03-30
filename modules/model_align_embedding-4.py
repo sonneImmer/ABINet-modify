@@ -21,19 +21,19 @@ class AlignModel(Model):
         self.vision = BaseVision(config)
         self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
         self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
-
-        # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
-
-        # self.bert = MyDataParallel(self.bert)
-        # self.bert = self.bert.to('cuda')
-
-        if config.model_vision_backbone == 'transformer':
-            self.backbone = ResTransformer_num(config)
-        else:
-            self.backbone = resnet45()
+        # if config.global_phase != 'train':
+            
+        #     self.is_training = False
+        # else:
+        #     self.is_training = True
     
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
+            self.attention5 = PositionAttentionBG(
+                max_length=config.dataset_max_length + 1,  # additional stop token
+                mode=mode,
+                init_with_embedding=False  # should be set to False before v1.1
+            )
             # self.attention3 = PositionAttentionBG(
             #     max_length=config.dataset_max_length + 1,  # additional stop token
             #     mode=mode,
@@ -46,30 +46,22 @@ class AlignModel(Model):
                 init_with_embedding=True,  # should be set to False before v1.1
                 in_channels=256
             )
-            # self.attention5 = PositionAttentionBG(
-            #     max_length=config.dataset_max_length + 1,  # additional stop token
-            #     mode=mode,
-            #     init_with_embedding=True  # should be set to False before v1.1
-            # )
-        elif config.model_vision_attention == 'attention':
-            self.attention = Attention(
-                max_length=config.dataset_max_length + 1,  # additional stop token
-                n_feature=8 * 32,
-            )
+        # elif config.model_vision_attention == 'attention':
+        #     self.attention = Attention(
+        #         max_length=config.dataset_max_length + 1,  # additional stop token
+        #         n_feature=8 * 32,
+        #     )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
-        # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
+        self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
-    def forward(self, images, *args):
+    def forward(self, images, y):
         
         v_res = self.vision(images)  # image [67, 3, 32, 128]
-
         logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
         pt_lengths = self._get_length(logits)
-        
         pt_text, pt_scores, pt_lengths_ = self.decode(logits)
-        
-        text_embeddings = []
+        text_embed = []
         for text in pt_text:
             text = self.tokenizer.tokenize(text)
             text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
@@ -79,27 +71,21 @@ class AlignModel(Model):
             text_id = text_id.unsqueeze(dim=0)
             text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
             text_embedding = text_embedding.detach()   # 切断反向传播
-            text_embeddings.append(text_embedding)
-        # print(text_embedding.shape)                # torch.Size([1, 8, 768])
-        
-        text_embeddings = torch.stack(text_embeddings, dim=0)
+            text_embed.append(text_embedding)
+        text_embed = torch.stack(text_embed, dim=0)
         
         #fix visual feature
         features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]
-        # n, c, h, w = features.shape
-
-        # features, attn_scores, fixed_features = self.attention3(features, text_embeddings)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
-        # text_embedding [1, 5, 768]
-        attn_vec, attn_scores = self.attention4.add(features, text_embeddings)
-
+        attn_vec, attn_scores = self.attention4.add(features, text_embed)
         features = self.resnet.con(attn_vec, 4)
 
-        v_res = self.vision.feature_forward(features)
-        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
+        attn_vecs, attn_scores = self.attention5(features)
+
+        logits = self.cls(attn_vecs)
         pt_lengths = self._get_length(logits)
 
-        return {'feature': attn_vec, 'logits': logits, 'pt_lengths': pt_lengths,
-            'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
+        return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
+                'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
     
     def decode(self, logit):
         """ Greed decode """
