@@ -9,7 +9,7 @@ from modules.embedding_head import Embedding
 from modules.model import Model
 from modules.resnet import resnet45, resnet45_num
 from .model_vision import BaseVision
-from pytorch_pretrained_bert import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel
 from utils import MyDataParallel
 
 class AlignModel(Model):

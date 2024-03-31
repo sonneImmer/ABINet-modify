@@ -12,12 +12,12 @@ dataset:
             'data/training/web/web_train/',
             'data/training/web/web_test/'
             ],
-    batch_size: 400
+    batch_size: 200
   }
   test: {
     roots: ['data/training/scene/scene_val/',
             'data/training/web/web_val/'],
-    batch_size: 400
+    batch_size: 200
   }
   charset_path: data/new_benchmark.txt
   data_aug: True
@@ -57,4 +57,3 @@ model:
     backbone: 'transformer',
     backbone_ln: 3,
   }
-  strict: False
