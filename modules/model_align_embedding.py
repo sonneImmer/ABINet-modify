@@ -9,7 +9,7 @@ from modules.embedding_head import Embedding
 from modules.model import Model
 from modules.resnet import resnet45
 from .model_vision import BaseVision
-from pytorch_pretrained_bert import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel
 from utils import MyDataParallel
 
 class AlignModel(Model):
@@ -61,6 +61,8 @@ class AlignModel(Model):
         for text in pt_text:
             text = self.tokenizer.tokenize(text)
             text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
+            text_id.insert(0, 101) # add CLS
+            text_id.append(102) # add SEP
             text_id = torch.tensor(text_id,dtype = torch.long)
             text_id = text_id.unsqueeze(dim=0)
             text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。

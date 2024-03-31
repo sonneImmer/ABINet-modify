@@ -19,8 +19,12 @@ class AlignModel(Model):
         self.loss_weight = ifnone(config.model_vision_loss_weight, 1.0)
         self.out_channels = ifnone(config.model_vision_d_model, 512)
         self.vision = BaseVision(config)
-        self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
-        self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
+        if config.global_phase == 'train':
+            self.is_train = True
+        else:
+            self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
+            self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
+            self.is_train = False
         # if config.global_phase != 'train':
             
         #     self.is_training = False
@@ -57,22 +61,26 @@ class AlignModel(Model):
 
     def forward(self, images, y):
         
-        v_res = self.vision(images)  # image [67, 3, 32, 128]
-        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
-        pt_lengths = self._get_length(logits)
-        pt_text, pt_scores, pt_lengths_ = self.decode(logits)
-        text_embed = []
-        for text in pt_text:
-            text = self.tokenizer.tokenize(text)
-            text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
-            text_id.insert(0, 101) # add CLS
-            text_id.append(102) # add SEP
-            text_id = torch.tensor(text_id,dtype = torch.long)
-            text_id = text_id.unsqueeze(dim=0)
-            text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
-            text_embedding = text_embedding.detach()   # 切断反向传播
-            text_embed.append(text_embedding)
-        text_embed = torch.stack(text_embed, dim=0)
+        if self.is_train:
+            text_embed = y[-1]
+        else:
+            v_res = self.vision(images)  # image [67, 3, 32, 128]
+            logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
+            pt_lengths = self._get_length(logits)
+            pt_text, pt_scores, pt_lengths_ = self.decode(logits)
+    
+            text_embed = []
+            for text in pt_text:
+                text = self.tokenizer.tokenize(text)
+                text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
+                text_id = torch.tensor(text_id,dtype = torch.long)
+                text_id = text_id.unsqueeze(dim=0)
+                text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
+                text_embedding = text_embedding.detach()   # 切断反向传播
+                text_embed.append(text_embedding)
+            # print(text_embedding.shape)                # torch.Size([1, 8, 768])
+            
+            text_embed = torch.stack(text_embed, dim=0)
         
         #fix visual feature
         features = self.resnet(images, layer_num=4) # feature (N, C, H, W) [67, 512, 8, 32]

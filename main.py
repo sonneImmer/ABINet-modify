@@ -10,12 +10,12 @@ from fastai.vision import *
 from torch.backends import cudnn
 
 from callbacks import DumpPrediction, IterationCallback, TextAccuracy, TopKTextAccuracy
-from dataset import ImageDataset, TextDataset
+# from dataset import ImageDataset, TextDataset
 from losses import MultiLosses
 
 # v1.x
 # from callbacks import DumpPrediction, IterationCallback, TextAccuracy, TopKTextAccuracy
-# from dataset import ImageDatasetWithEmbedding as ImageDataset
+from dataset import ImageDatasetWithEmbedding as ImageDataset
 # from losses import MultiLossesWithEmbedding as MultiLosses
 
 from utils import Config, Logger, MyDataParallel, MyConcatDataset

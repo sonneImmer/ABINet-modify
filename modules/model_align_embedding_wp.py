@@ -25,11 +25,6 @@ class AlignModel(Model):
         self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
         self.ltp = LTP('./workdir/small').cuda()
 
-        # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
-
-        # self.bert = MyDataParallel(self.bert)
-        # self.bert = self.bert.to('cuda')
-
         if config.model_vision_backbone == 'transformer':
             self.backbone = ResTransformer_num(config)
         else:
@@ -67,8 +62,7 @@ class AlignModel(Model):
             )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
-        # self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
-        self.cls = nn.Linear(8, 3)
+        self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
     def forward(self, images, *args):
         
@@ -97,7 +91,7 @@ class AlignModel(Model):
             # wordpiece
             word_embeddings = []
             wp = self.ltp.pipeline([text], tasks=["cws"])
-            for w in wp[0][0]:
+            if len(wp) == 0:
                 word_ids = self.tokenizer.tokenize(w)
                 word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
                 word_ids.insert(0, 101) # add CLS
@@ -106,6 +100,18 @@ class AlignModel(Model):
                 word_embedding = self.bert(word_ids.cuda())[1][0]
                 word_embedding = word_embedding.detach()
                 word_embeddings.append(word_embedding)
+            else:
+                for w in wp[0][0]:
+                    word_ids = self.tokenizer.tokenize(w)
+                    word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
+                    word_ids.insert(0, 101) # add CLS
+                    if w == '':
+                        word_ids.append(100)    
+                    word_ids.append(102)
+                    word_ids = torch.tensor(word_ids).unsqueeze(0)
+                    word_embedding = self.bert(word_ids.cuda())[1][0]
+                    word_embedding = word_embedding.detach()
+                    word_embeddings.append(word_embedding)
             
             word_embeddings = torch.stack(word_embeddings, dim=0)
             attn_vec_word, _ = self.attentionwp.bsa(word_embeddings, text_embedding)
@@ -128,10 +134,9 @@ class AlignModel(Model):
         attn_vec, attn_scores = self.attention4.add(features, embedding_vec_layer4)
         features = self.resnet.con3(attn_vec, 4)
         #5
-        attn_vec, attn_scores = self.attention5.add(features, embedding_vec_layer5)
+        attn_vec, attn_scores = self.attention5(features, embedding_vec_layer5)
 
-        v_res = self.vision.feature_forward(features)
-        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
+        logits = self.cls(attn_vec)
         pt_lengths = self._get_length(logits)
 
         return {'feature': attn_vec, 'logits': logits, 'pt_lengths': pt_lengths,

@@ -230,7 +230,6 @@ class BilinearSeqAttn(nn.Module):
         attn_scores = attn_scores / (E ** 0.5)
         attn_scores = torch.softmax(attn_scores, dim=-1)
 
-        attn_vecs = torch.matmul(attn_scores, v).permute(1, 0)
-        attn_vecs = self.cls(attn_vecs).permute(1, 0)
+        attn_vecs = torch.matmul(attn_scores, v)
 
         return attn_vecs, attn_scores

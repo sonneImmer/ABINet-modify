@@ -273,7 +273,7 @@ class ImageDatasetWithEmbedding(Dataset):
 
     def get(self, idx):
         with self.env.begin(write=False) as txn:
-            image_key, label_key, embed_key = f'image-{idx + 1:09d}', f'label-{idx + 1:09d}', f'embed-{idx + 1:09d}'
+            image_key, label_key, embed_key = f'image-{idx + 1:09d}', f'label-{idx + 1:09d}', f'embedding-{idx + 1:09d}'
             try:
                 label = str(txn.get(label_key.encode()), 'utf-8').strip()  # label
                 if not set(label).issubset(self.character):
@@ -287,13 +287,16 @@ class ImageDatasetWithEmbedding(Dataset):
 
                 # embedding vector
                 embed_vec = txn.get(embed_key.encode())
-                if embed_vec is not None:
-                    embed_vec = embed_vec.decode()
-                else:
-                    embed_vec = ' '.join(['0']*300)
+                # if embed_vec is not None:
+                #     embed_vec = embed_vec.decode()
+                # else:
+                #     embed_vec = ' '.join(['0']*786)
                 # make string vector to numpy ndarray
-                embed_vec = np.array(embed_vec.split()).astype(np.float32)
-                if embed_vec.shape[0] != 300:
+                embed_vec = np.frombuffer(embed_vec, dtype=np.float32)
+                embed_vec = torch.tensor(embed_vec)
+                
+                # embed_vec = np.array(embed_vec.split()).astype(np.float32)
+                if embed_vec.shape[0] != 768:
                     return self._next_image(idx)
 
                 imgbuf = txn.get(image_key.encode())  # image
