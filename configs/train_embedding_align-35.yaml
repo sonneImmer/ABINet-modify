@@ -12,12 +12,12 @@ dataset:
             'data/training/web/web_train/',
             'data/training/web/web_test/'
             ],
-    batch_size: 200
+    batch_size: 400
   }
   test: {
     roots: ['data/training/scene/scene_val/',
             'data/training/web/web_val/'],
-    batch_size: 200
+    batch_size: 400
   }
   charset_path: data/new_benchmark.txt
   data_aug: True
@@ -27,8 +27,8 @@ dataset:
 training:
   epochs: 8
   show_iters: 50
-  eval_iters: 3000
-  save_iters: 3000
+  eval_iters: 2950
+  save_iters: 2950
 
 optimizer:
   type: Adam

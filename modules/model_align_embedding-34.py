@@ -25,11 +25,8 @@ class AlignModel(Model):
             self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
             self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
             self.is_train = False
-
-        # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
-
-        # self.bert = MyDataParallel(self.bert)
-        # self.bert = self.bert.to('cuda')
+        
+        self.is_train = True
 
         if config.model_vision_backbone == 'transformer':
             self.backbone = ResTransformer_num(config)
@@ -98,7 +95,8 @@ class AlignModel(Model):
         attn_vecs, attn_scores = self.attention(features)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]
 
-        logits = self.cls(attn_vecs)
+        v_res = self.vision.feature_forward(features)
+        logits = v_res['logits']
         pt_lengths = self._get_length(logits)
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,

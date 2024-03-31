@@ -26,6 +26,7 @@ class AlignModel(Model):
             self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
             self.is_train = False
 
+        self.is_train = True
         # self.bert = nn.parallel.DistributedDataParallel(self.bert, device_ids=[0,1,2])
 
         # self.bert = MyDataParallel(self.bert)
@@ -78,6 +79,8 @@ class AlignModel(Model):
             for text in pt_text:
                 text = self.tokenizer.tokenize(text)
                 text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
+                text_id.insert(0, 101) # add CLS
+                text_id.append(102) # add SEP
                 text_id = torch.tensor(text_id,dtype = torch.long)
                 text_id = text_id.unsqueeze(dim=0)
                 text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
@@ -94,7 +97,8 @@ class AlignModel(Model):
         attn_vecs, attn_scores = self.attention5(features, text_embed)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]
 
-        logits = self.cls(attn_vecs)
+        v_res = self.vision.feature_forward(features)
+        logits = v_res['logits']
         pt_lengths = self._get_length(logits)
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,

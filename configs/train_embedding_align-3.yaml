@@ -27,8 +27,8 @@ dataset:
 training:
   epochs: 8
   show_iters: 50
-  eval_iters: 3000
-  save_iters: 3000
+  eval_iters: 2950
+  save_iters: 2950
 
 optimizer:
   type: Adam

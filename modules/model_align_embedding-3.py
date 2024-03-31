@@ -19,18 +19,9 @@ class AlignModel(Model):
         self.loss_weight = ifnone(config.model_vision_loss_weight, 1.0)
         self.out_channels = ifnone(config.model_vision_d_model, 512)
         self.vision = BaseVision(config)
-        if config.global_phase == 'train':
-            self.is_train = True
-        else:
-            self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
-            self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
-            self.is_train = False
-        # if config.global_phase != 'train':
-            
-        #     self.is_training = False
-        # else:
-        #     self.is_training = True
-    
+
+        self.is_train = True
+
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
             self.attention5 = PositionAttentionBG(
@@ -44,22 +35,6 @@ class AlignModel(Model):
                 init_with_embedding=True,  # should be set to False before v1.1
                 in_channels=128
             )
-        #     self.attention4 = PositionAttentionBG(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         mode=mode,
-        #         init_with_embedding=True,  # should be set to False before v1.1
-        #         in_channels=256
-        #     )
-        #     self.attention5 = PositionAttentionBG(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         mode=mode,
-        #         init_with_embedding=True  # should be set to False before v1.1
-        #     )
-        # elif config.model_vision_attention == 'attention':
-        #     self.attention = Attention(
-        #         max_length=config.dataset_max_length + 1,  # additional stop token
-        #         n_feature=8 * 32,
-        #     )
         else:
             raise Exception(f'{config.model_vision_attention} is not valid.')
         self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
@@ -73,34 +48,16 @@ class AlignModel(Model):
             logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
             pt_lengths = self._get_length(logits)
             pt_text, pt_scores, pt_lengths_ = self.decode(logits)
-    
-            text_embed = []
-            for text in pt_text:
-                text = self.tokenizer.tokenize(text)
-                text_id = self.tokenizer.convert_tokens_to_ids(text) # convert tokens to index
-                text_id = torch.tensor(text_id,dtype = torch.long)
-                text_id = text_id.unsqueeze(dim=0)
-                text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
-                text_embedding = text_embedding.detach()   # 切断反向传播
-                text_embed.append(text_embedding)
-            # print(text_embedding.shape)                # torch.Size([1, 8, 768])
-            
-            text_embed = torch.stack(text_embed, dim=0)
         
         #fix visual feature
         features = self.resnet(images, layer_num=3) # feature (N, C, H, W) [67, 512, 8, 32]
         attn_vec, attn_scores = self.attention3.add(features, text_embed)
         features = self.resnet.con(attn_vec, 3)
 
-        # abondon
-        # v_res = self.vision.feature_forward(features)
-        # logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
-        # pt_lengths = self._get_length(logits)
-
         attn_vecs, attn_scores = self.attention5(features)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
-        # text_embedding [1, 5, 768]
 
-        logits = self.cls(attn_vecs)
+        v_res = self.vision.feature_forward(features)
+        logits = v_res['logits']
         pt_lengths = self._get_length(logits)
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,

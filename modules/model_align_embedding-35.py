@@ -23,7 +23,7 @@ class AlignModel(Model):
             self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
             self.is_train = False
 
-    
+        self.is_train = True
         if config.model_vision_attention == 'position':
             mode = ifnone(config.model_vision_attention_mode, 'nearest')
             self.attention3 = PositionAttentionBG(
@@ -76,7 +76,8 @@ class AlignModel(Model):
         attn_vecs, attn_scores = self.attention5(features, text_embed)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]
 
-        logits = self.cls(attn_vecs)
+        v_res = self.vision.feature_forward(features)
+        logits = v_res['logits']
         pt_lengths = self._get_length(logits)
 
         return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
