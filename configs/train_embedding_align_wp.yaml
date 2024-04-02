@@ -7,16 +7,16 @@ global:
  
 dataset:
   train: {
-    roots: ['data/training/scene/scene_train/',
-            'data/training/scene/scene_test/',
-            'data/training/web/web_train/',
-            'data/training/web/web_test/'
+    roots: ['/root/autodl-tmp/wpembed/scene/scene_train/',
+            '/root/autodl-tmp/wpembed/scene/scene_test/',
+            '/root/autodl-tmp/wpembed/web/web_train/',
+            '/root/autodl-tmp/wpembed/web/web_test/'
             ],
     batch_size: 200
   }
   test: {
-    roots: ['data/training/scene/scene_val/',
-            'data/training/web/web_val/'],
+    roots: ['/root/autodl-tmp/wpembed/scene/scene_val/',
+            '/root/autodl-tmp/wpembed/web/web_val/'],
     batch_size: 200
   }
   charset_path: data/new_benchmark.txt

@@ -21,10 +21,11 @@ class AlignModel(Model):
         self.loss_weight = ifnone(config.model_vision_loss_weight, 1.0)
         self.out_channels = ifnone(config.model_vision_d_model, 512)
         self.vision = BaseVision(config)
-        self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
-        self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
-        self.ltp = LTP('./workdir/small').cuda()
+        # self.tokenizer = BertTokenizer.from_pretrained('./workdir/bert-base-chinese/') # 加载base模型的对应的切词器
+        # self.bert = BertModel.from_pretrained('./workdir/bert-base-chinese')
+        # self.ltp = LTP('./workdir/small').cuda()
 
+        self.is_train = True
         if config.model_vision_backbone == 'transformer':
             self.backbone = ResTransformer_num(config)
         else:
@@ -64,59 +65,57 @@ class AlignModel(Model):
             raise Exception(f'{config.model_vision_attention} is not valid.')
         self.cls = nn.Linear(self.out_channels, self.charset.num_classes)
 
-    def forward(self, images, *args):
+    def forward(self, images, y):
         
-        v_res = self.vision(images)  # image [67, 3, 32, 128]
+        wp_embedd = y[-1]
+        # v_res = self.vision(images)  # image [67, 3, 32, 128]
+        # logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
+        # pt_lengths = self._get_length(logits)
+        # pt_text, pt_scores, pt_lengths_ = self.decode(logits)
 
-        logits = v_res['logits']  # (N, T, C)  # [n, 26, 37] # [67, 26, 7935]
-        pt_lengths = self._get_length(logits)
-        
-        pt_text, pt_scores, pt_lengths_ = self.decode(logits)
-
-        
         embedding_vec_layer3 = []
         embedding_vec_layer4 = []
         embedding_vec_layer5 = []
-        text_embeddings = []
-        for text in pt_text:
-            text_t = self.tokenizer.tokenize(text)
-            text_id = self.tokenizer.convert_tokens_to_ids(text_t) # convert tokens to index
-            text_id.insert(0, 101) # add CLS, add SEP
-            text_id.append(102)
-            text_id = torch.tensor(text_id,dtype = torch.long).unsqueeze(dim=0)
-            text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
-            text_embedding = text_embedding.detach()   # 切断反向传播
-            text_embeddings.append(text_embedding)
+        # text_embeddings = []
+        # for text in pt_text:
+        #     text_t = self.tokenizer.tokenize(text)
+        #     text_id = self.tokenizer.convert_tokens_to_ids(text_t) # convert tokens to index
+        #     text_id.insert(0, 101) # add CLS, add SEP
+        #     text_id.append(102)
+        #     text_id = torch.tensor(text_id,dtype = torch.long).unsqueeze(dim=0)
+        #     text_embedding = self.bert(text_id.cuda())[1][0]       # 取第1层，也可以取别的层。
+        #     text_embedding = text_embedding.detach()   # 切断反向传播
+        #     text_embeddings.append(text_embedding)
 
-            # wordpiece
-            word_embeddings = []
-            wp = self.ltp.pipeline([text], tasks=["cws"])
-            if len(wp) == 0:
-                word_ids = self.tokenizer.tokenize(w)
-                word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
-                word_ids.insert(0, 101) # add CLS
-                word_ids.append(102)
-                word_ids = torch.tensor(word_ids).unsqueeze(0)
-                word_embedding = self.bert(word_ids.cuda())[1][0]
-                word_embedding = word_embedding.detach()
-                word_embeddings.append(word_embedding)
-            else:
-                for w in wp[0][0]:
-                    word_ids = self.tokenizer.tokenize(w)
-                    word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
-                    word_ids.insert(0, 101) # add CLS    
-                    word_ids.append(102)
-                    word_ids = torch.tensor(word_ids).unsqueeze(0)
-                    word_embedding = self.bert(word_ids.cuda())[1][0]
-                    word_embedding = word_embedding.detach()
-                    word_embeddings.append(word_embedding)
+        #     # wordpiece
+        #     word_embeddings = []
+        #     wp = self.ltp.pipeline([text], tasks=["cws"])
+        #     if len(wp) == 0:
+        #         word_ids = self.tokenizer.tokenize(w)
+        #         word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
+        #         word_ids.insert(0, 101) # add CLS
+        #         word_ids.append(102)
+        #         word_ids = torch.tensor(word_ids).unsqueeze(0)
+        #         word_embedding = self.bert(word_ids.cuda())[1][0]
+        #         word_embedding = word_embedding.detach()
+        #         word_embeddings.append(word_embedding)
+        #     else:
+        #         for w in wp[0][0]:
+        #             word_ids = self.tokenizer.tokenize(w)
+        #             word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
+        #             word_ids.insert(0, 101) # add CLS    
+        #             word_ids.append(102)
+        #             word_ids = torch.tensor(word_ids).unsqueeze(0)
+        #             word_embedding = self.bert(word_ids.cuda())[1][0]
+        #             word_embedding = word_embedding.detach()
+        #             word_embeddings.append(word_embedding)
             
-            word_embeddings = torch.stack(word_embeddings, dim=0)
-            attn_vec_word, _ = self.attentionwp.bsa(word_embeddings, text_embedding)
+        #     word_embeddings = torch.stack(word_embeddings, dim=0)
+        #     attn_vec_word, _ = self.attentionwp.bsa(word_embeddings, text_embedding)
 
-            embedding_vec_layer3.append(attn_vec_word[0])
-            embedding_vec_layer4.append(attn_vec_word[1])
-            embedding_vec_layer5.append(attn_vec_word[2])
+        embedding_vec_layer3.append(wp_embedd[0])
+        embedding_vec_layer4.append(wp_embedd[1])
+        embedding_vec_layer5.append(wp_embedd[2])
 
         embedding_vec_layer3 = torch.stack(embedding_vec_layer3, dim=0)
         embedding_vec_layer4 = torch.stack(embedding_vec_layer4, dim=0)
