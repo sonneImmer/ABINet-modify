@@ -92,14 +92,14 @@ class AlignModel(Model):
         attn_vec, attn_scores = self.attention4.add(features, text_embed)
         features = self.resnet.con(attn_vec, 4)
 
-        attn_vecs, attn_scores = self.attention(features)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
+        # attn_vecs, attn_scores = self.attention(features)  # (N, T, E), (N, T, H, W)  # [n, 26, 512], [n, 26, 8, 32]
         # text_embedding [1, 5, 768]
 
         v_res = self.vision.feature_forward(features)
         logits = v_res['logits']
         pt_lengths = self._get_length(logits)
 
-        return {'feature': attn_vecs, 'logits': logits, 'pt_lengths': pt_lengths,
+        return {'feature': attn_vec, 'logits': logits, 'pt_lengths': pt_lengths,
                 'attn_scores': attn_scores, 'loss_weight': self.loss_weight, 'name': 'vision'}
     
     def decode(self, logit):

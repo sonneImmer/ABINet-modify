@@ -104,9 +104,7 @@ class AlignModel(Model):
                 for w in wp[0][0]:
                     word_ids = self.tokenizer.tokenize(w)
                     word_ids = self.tokenizer.convert_tokens_to_ids(word_ids)
-                    word_ids.insert(0, 101) # add CLS
-                    if w == '':
-                        word_ids.append(100)    
+                    word_ids.insert(0, 101) # add CLS    
                     word_ids.append(102)
                     word_ids = torch.tensor(word_ids).unsqueeze(0)
                     word_embedding = self.bert(word_ids.cuda())[1][0]
